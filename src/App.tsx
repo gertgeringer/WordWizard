@@ -7,8 +7,6 @@ import Navbar from "./components/common/navbar/Navbar";
 import AssessmentsView from "./views/AssessmentsView";
 import ReadEvaluationView from "./views/ReadEvaluationView";
 import {useEffect} from "react";
-import SettingsView from "./views/SettingsView.tsx";
-
 
 function App() {
 
