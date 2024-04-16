@@ -7,7 +7,7 @@
   },
   "package": {
     "productName": "WordWizard",
-    "version": "0.5.0"
+    "version": "0.5.1"
   },
   "tauri": {
     "allowlist": {
@@ -21,7 +21,9 @@
       },
       "protocol": {
         "asset": true,
-        "assetScope": ["**"]
+        "assetScope": [
+          "**"
+        ]
       }
     },
     "windows": [
