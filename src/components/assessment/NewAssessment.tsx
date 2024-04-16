@@ -18,6 +18,7 @@ import {useForm} from "@mantine/form";
 import {IconSelectAll} from "@tabler/icons-react";
 import {Assessment, Card, commands, Deck, Student} from "../../bindings.ts";
 import {useNavigate} from "react-router-dom";
+import {message} from "@tauri-apps/api/dialog";
 
 interface NewAssessmentProps {
     onCreated: (assessment: Assessment) => void
@@ -81,9 +82,11 @@ const NewAssessment: React.FC<NewAssessmentProps> = ({onCreated}) => {
             ).then((result) => {
                 if (result.status === "ok") {
                     onCreated(result.data);
+                } else {
+                    message(result.error, {title: "Error"})
                 }
             })
-        })} >
+        })}>
             <Title order={4}>Details</Title>
             <Divider mt={"md"}/>
             <TextInput
@@ -101,14 +104,15 @@ const NewAssessment: React.FC<NewAssessmentProps> = ({onCreated}) => {
                 <Title order={4}>Students</Title>
                 <SelectAllButton onClick={() => {
                     setSelectedStudents(students);
-                }} />
+                }}/>
             </Group>
             <Divider mt={"md"}/>
             <Stack mt={"md"}>
                 {students && students.length == 0 &&
-                    <Group gap={5} display={"inline-block"}>You need students to create an assessment. Create some <Anchor onClick={() => {
-                        navigate("/students");
-                    }}>here</Anchor>.</Group>
+                    <Group gap={5} display={"inline-block"}>You need students to create an assessment. Create
+                        some <Anchor onClick={() => {
+                            navigate("/students");
+                        }}>here</Anchor>.</Group>
                 }
                 {students && students.map((student, index) => (
                     <Paper key={index} shadow="xs" p="md">
@@ -120,7 +124,7 @@ const NewAssessment: React.FC<NewAssessmentProps> = ({onCreated}) => {
                                 } else {
                                     setSelectedStudents(st => st.filter(s => s.id != student.id));
                                 }
-                            }} />
+                            }}/>
                             {getStudentFullName(student)}
                         </Group>
                     </Paper>
@@ -130,9 +134,10 @@ const NewAssessment: React.FC<NewAssessmentProps> = ({onCreated}) => {
             <Divider mt={"md"} mb={"md"}/>
             <Stack>
                 {decks && decks.length == 0 &&
-                    <Group gap={5} display={"inline-block"}>You need decks to create an assessment. Create some <Anchor onClick={() => {
-                        navigate("/decks");
-                    }}>here</Anchor>.</Group>
+                    <Group gap={5} display={"inline-block"}>You need decks to create an assessment. Create some <Anchor
+                        onClick={() => {
+                            navigate("/decks");
+                        }}>here</Anchor>.</Group>
                 }
                 {decks && decks.map((deck, index) => (
                     <Paper key={index} shadow="xs" p="md">
@@ -140,19 +145,21 @@ const NewAssessment: React.FC<NewAssessmentProps> = ({onCreated}) => {
                             <Title order={5}>{deck.title}</Title>
                             <SelectAllButton onClick={() => {
                                 setSelectedCards(sc => [...sc, ...deck.cards])
-                            }} />
+                            }}/>
                         </Group>
                         <Divider mt={"md"} mb={"md"}/>
                         <>
                             <Group>
                                 {deck && deck.cards.map((card, index) => (
-                                    <DeckCard key={index} cardImagePath={card.image_file_path} text={card.text} selectable={true} checked={selectedCards.includes(card)} onChange={(checked) => {
-                                        if (checked) {
-                                            setSelectedCards(s => [...s, card]);
-                                        } else {
-                                            setSelectedCards(st => st.filter(s => s.id != card.id));
-                                        }
-                                    }}/>
+                                    <DeckCard key={index} cardImagePath={card.image_file_path} text={card.text}
+                                              selectable={true} checked={selectedCards.includes(card)}
+                                              onChange={(checked) => {
+                                                  if (checked) {
+                                                      setSelectedCards(s => [...s, card]);
+                                                  } else {
+                                                      setSelectedCards(st => st.filter(s => s.id != card.id));
+                                                  }
+                                              }}/>
                                 ))}
                             </Group>
                         </>

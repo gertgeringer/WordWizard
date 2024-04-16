@@ -1,17 +1,18 @@
 // Prevents additional console window on Windows in release, DO NOT REMOVE!!
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-mod core;
-mod app_commands;
-
 use std::fs;
 use std::path::PathBuf;
 use std::sync::Mutex;
-use directories::ProjectDirs;
 
-use core::Engine;
+use directories::ProjectDirs;
 use tauri::State;
 use tauri_specta::*;
+
+use core::Engine;
+
+mod core;
+mod app_commands;
 
 pub struct AppState(Mutex<Engine>);
 
@@ -63,6 +64,7 @@ fn main() {
                 app_commands::save_card_to_deck,
                 app_commands::update_deck,
                 app_commands::create_assessment,
+                app_commands::copy_assessment,
                 app_commands::get_all_assessments,
                 app_commands::get_assessment,
                 app_commands::delete_assessment,
@@ -71,7 +73,9 @@ fn main() {
                 app_commands::card_read_end,
                 app_commands::start_evaluation,
                 app_commands::stop_evaluation,
-                app_commands::get_all_student_evaluations
+                app_commands::get_all_student_evaluations,
+                app_commands::reset_student_evaluation,
+                app_commands::get_students_read_results
             ]);
 
         #[cfg(debug_assertions)]

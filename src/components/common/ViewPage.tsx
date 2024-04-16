@@ -7,7 +7,7 @@ interface ViewPageProps {
 
 const ViewPage: React.FC<ViewPageProps> = (props) => {
     return (
-        <Flex direction={"column"} m={"md"} flex={"fit-content"}>
+        <Flex direction={"column"} m={"md"} flex={1}>
             {props.children}
         </Flex>
     )

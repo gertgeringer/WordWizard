@@ -5,10 +5,18 @@ import {IconDotsVertical, IconEdit, IconTrash} from "@tabler/icons-react";
 interface QuickMenuProps {
     item: any,
     onEdit?: (item: any) => void,
-    onDelete?: (item: any) => void
+    onDelete?: (item: any) => void,
+    onCopy?: (item: any) => void,
+    onView?: (item: any) => void
 }
 
-const QuickMenu: React.FC<QuickMenuProps> = ({item, onDelete, onEdit}) => {
+const QuickMenu: React.FC<QuickMenuProps> = ({
+                                                 item,
+                                                 onDelete,
+                                                 onEdit,
+                                                 onCopy,
+                                                 onView
+                                             }) => {
 
     const [showConfirmDialog, setShowConfirmDialog] = useState<boolean>(false);
 
@@ -40,6 +48,30 @@ const QuickMenu: React.FC<QuickMenuProps> = ({item, onDelete, onEdit}) => {
                             }}
                         >
                             Edit
+                        </Menu.Item>
+                    }
+                    {onCopy &&
+                        <Menu.Item
+                            leftSection={<IconEdit size={14}/>}
+                            onClick={(event) => {
+                                event.stopPropagation();
+                                event.preventDefault();
+                                onCopy(item);
+                            }}
+                        >
+                            Copy
+                        </Menu.Item>
+                    }
+                    {onView &&
+                        <Menu.Item
+                            leftSection={<IconEdit size={14}/>}
+                            onClick={(event) => {
+                                event.stopPropagation();
+                                event.preventDefault();
+                                onView(item);
+                            }}
+                        >
+                            View
                         </Menu.Item>
                     }
                     {onDelete &&

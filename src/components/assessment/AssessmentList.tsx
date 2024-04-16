@@ -1,4 +1,4 @@
-import { Stack } from "@mantine/core";
+import {Stack} from "@mantine/core";
 import AssessmentListItem from "./AssessmentListItem";
 import {Assessment, AssessmentWithStatus} from "../../bindings.ts";
 import ViewNavbar from "../common/viewnavbar/ViewNabar.tsx";
@@ -7,6 +7,7 @@ import React, {useEffect, useState} from "react";
 interface AssessmentListProps {
     assessments: AssessmentWithStatus[]
     onDeleted: (assessment: Assessment) => void
+    onCopy: (assessment: Assessment) => void
 }
 
 function getAssessmentDescription(aws: AssessmentWithStatus) {
@@ -25,7 +26,7 @@ function getSelectedAssessment(aws: AssessmentWithStatus[]) {
     }
 }
 
-const AssessmentList: React.FC<AssessmentListProps> = ({assessments, onDeleted}) => {
+const AssessmentList: React.FC<AssessmentListProps> = ({assessments, onDeleted, onCopy}) => {
 
     const [selectedAssessmentId, setSelectedAssessmentId] = useState<number>();
 
@@ -42,16 +43,17 @@ const AssessmentList: React.FC<AssessmentListProps> = ({assessments, onDeleted})
                     setSelectedAssessmentId(item.id);
                 }}
                 items={sortedAssessments.map(a => {
-                return {
-                    id: a.assessment.id,
-                    label: a.assessment.title,
-                    description: getAssessmentDescription(a)
-                }
-            })} />
-            <Stack gap="xs" style={{flexGrow: "1"}} ml={"md"}>
+                    return {
+                        id: a.assessment.id,
+                        label: a.assessment.title,
+                        description: getAssessmentDescription(a)
+                    }
+                })}/>
+            <Stack gap="xs" style={{flexGrow: "1"}}>
                 {sortedAssessments
                     .map((a, index) => (
-                        <AssessmentListItem key={index} aws={a} onDeleted={onDeleted} opened={a.assessment.id === selectedAssessmentId}/>
+                        <AssessmentListItem key={index} aws={a} onDeleted={onDeleted} onCopy={onCopy}
+                                            opened={a.assessment.id === selectedAssessmentId}/>
                     ))}
             </Stack>
         </>

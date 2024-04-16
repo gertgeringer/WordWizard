@@ -1,7 +1,7 @@
-import React, { useEffect, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
-import { Button, Flex, Group, Title, Image } from "@mantine/core";
-import {IconCaretRight } from "@tabler/icons-react";
+import React, {useEffect, useState} from "react";
+import {useNavigate, useParams} from "react-router-dom";
+import {Button, Flex, Group, Image, Title} from "@mantine/core";
+import {IconCaretRight} from "@tabler/icons-react";
 import "./ReadEvaluationView.css";
 import Timer from "../components/common/Timer.tsx";
 import {convertFileSrc} from "@tauri-apps/api/tauri";
@@ -61,15 +61,15 @@ const ReadEvaluationView: React.FC = () => {
             {activeCard && evaluationId &&
                 <Flex direction={"column"} h={"calc(100vh - 90px)"}>
                     <Group style={{flexGrow: "1", flexDirection: "column"}} justify="center">
-                    {activeCard.card.image_file_path &&
-                        <Image
-                            radius="md"
-                            h={200}
-                            w="auto"
-                            fit="contain"
-                            src={convertFileSrc(activeCard.card.image_file_path)}
-                        />
-                    }
+                        {activeCard.card.image_file_path &&
+                            <Image
+                                radius="md"
+                                mah={260}
+                                w="auto"
+                                fit="contain"
+                                src={convertFileSrc(activeCard.card.image_file_path)}
+                            />
+                        }
 
                         <Title
                             style={{

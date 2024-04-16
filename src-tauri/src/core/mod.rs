@@ -1,20 +1,21 @@
+use std::{fs, io};
+use std::fs::File;
+use std::io::{ErrorKind, Read, Write};
+use std::path::PathBuf;
+
+use serde::{Deserialize, Serialize};
+
+use crate::core::assessment::{Assessment, StudentEvaluation};
+use crate::core::deck::{Card, Deck};
+use crate::core::student::Student;
+use crate::get_root_file_path;
+
+use self::store::InMemoryStore;
+
 mod store;
 pub mod assessment;
 pub mod deck;
 pub mod student;
-
-use std::fs::File;
-use std::io::{ErrorKind, Read, Write};
-use std::{fs, io};
-use std::path::PathBuf;
-use serde::{Deserialize, Serialize};
-use crate::{get_root_file_path};
-use crate::core::assessment::{Assessment, StudentEvaluation};
-use crate::core::deck::{Card, Deck};
-use crate::core::student::Student;
-use self::{
-    store::InMemoryStore,
-};
 
 #[derive(Serialize, Deserialize)]
 pub struct Data {
@@ -30,7 +31,7 @@ impl Data {
             students: InMemoryStore::new(),
             decks: InMemoryStore::new(),
             assessments: InMemoryStore::new(),
-            next_id: 0
+            next_id: 0,
         }
     }
 
@@ -43,16 +44,15 @@ impl Data {
                 let data: Data = serde_json::from_str(&content)
                     .expect("Error deserializing JSON");
                 data
-            },
+            }
             Err(ref e) if e.kind() == ErrorKind::NotFound => {
                 Data::new()
-            },
+            }
             Err(e) => {
                 Err(e).unwrap()
             }
         }
     }
-
 }
 
 pub struct Engine {
@@ -86,7 +86,7 @@ impl Engine {
         first_name: String,
         last_name: String,
     ) -> &mut Student {
-        let student =self.data.students.get(student_id).unwrap();
+        let student = self.data.students.get(student_id).unwrap();
         student.first_name = first_name;
         student.last_name = last_name;
         student
@@ -164,7 +164,7 @@ impl Engine {
         if let Some(card) = card_to_delete {
             if let Some(image_file_path) = card.image_file_path.clone() {
                 match fs::remove_file(image_file_path) {
-                    Ok(_) => {},
+                    Ok(_) => {}
                     Err(e) => println!("Error deleting card image file: {:?}", e)
                 }
             }
@@ -184,16 +184,45 @@ impl Engine {
         title: String,
         students: Vec<Student>,
         cards: Vec<Card>,
-        duration_in_sec: u32
-    ) -> Assessment {
+        duration_in_sec: u32,
+    ) -> Result<Assessment, String> {
         let id = self.get_next_id();
         let new_assessment = Assessment::new(id, title, students, cards, duration_in_sec);
-        self.data.assessments.insert(id, new_assessment.clone());
-        new_assessment
+        let assessment_exists = self.data.assessments.get_all().iter().find(|a| a == &&new_assessment).is_none();
+        if assessment_exists {
+            self.data.assessments.insert(id, new_assessment.clone());
+            Ok(new_assessment)
+        } else {
+            Err("An active assessment with the selected students and cards already exists".to_string())
+        }
     }
 
-    pub fn get_assessments(&self) -> Vec<Assessment> {
-        self.data.assessments.get_all()
+    pub fn copy_assessment(&mut self, assessment_id: u32) -> Result<Assessment, String> {
+        let id = self.get_next_id();
+        if let Some(assessment) = self.data.assessments.get(assessment_id) {
+            let new_assessment = Assessment::new(
+                id,
+                format!("Copy of {}", assessment.title),
+                assessment.students.clone(),
+                assessment.cards.clone(),
+                assessment.duration_in_sec,
+            );
+            let assessment_exists = self.data.assessments.get_all().iter().find(|a| a == &&new_assessment).is_none();
+            if assessment_exists {
+                self.data.assessments.insert(id, new_assessment.clone());
+                Ok(new_assessment)
+            } else {
+                Err("An active assessment with the selected students and cards already exists".to_string())
+            }
+        } else {
+            Err("Assessment not found".to_string())
+        }
+    }
+
+    pub fn get_assessments(&self, include_completed_assessments: bool) -> Vec<Assessment> {
+        self.data.assessments.get_all().iter()
+            .filter(|a| include_completed_assessments || a.get_state() != assessment::AssessmentState::Completed)
+            .cloned().collect()
     }
 
     pub fn get_assessment(&mut self, id: u32) -> Option<&mut Assessment> {
@@ -221,6 +250,16 @@ impl Engine {
         Option::None
     }
 
+    pub fn reset_student_evaluation(&mut self, assessment_id: u32, student_id: u32) -> Result<StudentEvaluation, String> {
+        if let Some(assessment) = self.data.assessments.get(assessment_id) {
+            if let Some(se) = assessment.get_student_evaluation_by_student_id(student_id) {
+                se.reset_results();
+                return Ok(se.clone());
+            }
+        }
+        Err("Student evaluation not found".to_string())
+    }
+
     pub fn read_card(&mut self, student_id: u32, assessment_id: u32) {
         if let Some(assessment) = self.data.assessments.get(assessment_id) {
             if let Some(se) = assessment.get_student_evaluation_by_student_id(student_id) {
@@ -244,11 +283,14 @@ impl Engine {
         result
     }
 
+    pub fn get_student(&mut self, student_id: u32) -> Student {
+        self.data.students.get(student_id).unwrap().clone()
+    }
+
     pub fn save(&mut self, file_path: PathBuf) -> io::Result<()> {
         let json_str = serde_json::to_string(&self.data)?;
         let mut file = File::create(file_path)?;
         file.write_all(json_str.as_bytes())?;
         Ok(())
     }
-
 }

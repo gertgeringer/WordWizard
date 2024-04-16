@@ -14,6 +14,13 @@ impl Card {
     }
 }
 
+impl PartialEq for Card {
+    fn eq(&self, other: &Self) -> bool {
+        self.text == other.text &&
+            self.image_file_path == other.image_file_path
+    }
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone, Type)]
 pub struct Deck {
     pub id: u32,

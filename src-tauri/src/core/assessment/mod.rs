@@ -1,27 +1,29 @@
 use std::collections::VecDeque;
 use std::fmt::{Display, Formatter, Result as FmtResult};
+
 use chrono::{DateTime, Duration, NaiveDateTime, TimeZone, Utc};
 use serde::{Deserialize, Serialize, Serializer};
 use specta::Type;
+
 use crate::core::deck::Card;
 use crate::core::student::Student;
 
 #[derive(Serialize, Debug, Clone, Deserialize, Type)]
 pub struct AssessmentWithStatus {
     pub assessment: Assessment,
-    pub status: AssessmentStatus
+    pub status: AssessmentStatus,
 }
 
 impl AssessmentWithStatus {
     pub fn new(
         assessment: Assessment
-    )  -> Self {
+    ) -> Self {
         AssessmentWithStatus {
             assessment: assessment.clone(),
             status: AssessmentStatus::new(
                 assessment.clone().get_state(),
-                assessment.clone().get_progress()
-            )
+                assessment.clone().get_progress(),
+            ),
         }
     }
 }
@@ -33,7 +35,7 @@ pub struct Assessment {
     pub students: Vec<Student>,
     pub cards: Vec<Card>,
     pub duration_in_sec: u32,
-    pub student_evaluations: Vec<StudentEvaluation>
+    pub student_evaluations: Vec<StudentEvaluation>,
 }
 
 impl Assessment {
@@ -42,9 +44,8 @@ impl Assessment {
         title: String,
         students: Vec<Student>,
         cards: Vec<Card>,
-        duration_in_sec: u32
+        duration_in_sec: u32,
     ) -> Self {
-
         let student_evaluations: Vec<StudentEvaluation> =
             students
                 .iter()
@@ -54,7 +55,7 @@ impl Assessment {
                         cards
                             .iter()
                             .map(|card| CardEvaluation::new(card.clone()))
-                            .collect()
+                            .collect(),
                     )
                 })
                 .collect();
@@ -65,7 +66,7 @@ impl Assessment {
             students,
             cards,
             duration_in_sec,
-            student_evaluations
+            student_evaluations,
         }
     }
 
@@ -79,7 +80,6 @@ impl Assessment {
     }
 
     pub fn get_state(&self) -> AssessmentState {
-
         if self.student_evaluations.iter().all(|se| se.state == AssessmentState::Completed) {
             return AssessmentState::Completed;
         }
@@ -105,7 +105,28 @@ impl Assessment {
         let progress = (completed_student_evaluations as f64 / total_student_evaluations as f64) * 100.0;
         progress as i32
     }
+}
 
+impl PartialEq for Assessment {
+    fn eq(&self, other: &Self) -> bool {
+        if self.get_state() != other.get_state() {
+            return false;
+        }
+        if self.duration_in_sec != other.duration_in_sec {
+            return false;
+        }
+        for (i, card) in self.cards.iter().enumerate() {
+            if card != other.cards.get(i).unwrap() {
+                return false;
+            }
+        }
+        for (i, student) in self.students.iter().enumerate() {
+            if student != other.students.get(i).unwrap() {
+                return false;
+            }
+        }
+        true
+    }
 }
 
 #[derive(Serialize, Debug, Clone, Copy, PartialEq, Eq, Deserialize, Type)]
@@ -158,6 +179,7 @@ impl Display for AssessmentState {
 
 #[derive(Serialize, Debug, Clone, Deserialize, Type)]
 pub struct StudentEvaluation {
+    pub eval_date_epoch: u32,
     pub student: Student,
     #[serde(serialize_with = "serialize_student_evaluation_state")]
     state: AssessmentState,
@@ -169,11 +191,12 @@ pub struct StudentEvaluation {
 impl StudentEvaluation {
     pub fn new(student: Student, cards: Vec<CardEvaluation>) -> Self {
         Self {
+            eval_date_epoch: Utc::now().timestamp() as u32,
             student,
             state: AssessmentState::NotStarted,
             card_evaluations: cards.clone(),
             card_read_order_queue: cards.clone().iter().map(|ce| ce.card.id).collect::<Vec<_>>().into(),
-            result: Option::None
+            result: Option::None,
         }
     }
 
@@ -205,21 +228,39 @@ impl StudentEvaluation {
         Option::None
     }
 
-    pub fn get_card_read_count(&self) -> i32 {
-        self.card_evaluations.iter().filter(|ce| ce.is_read()).count() as i32
+    pub fn get_card_read_count(&self) -> u32 {
+        self.card_evaluations.iter().filter(|ce| ce.is_read()).count() as u32
     }
 
-    pub fn get_evaluation_time_is_ms(&self) -> Result<i32, String> {
-        let mut total_duration = Duration::zero();
+    pub fn get_evaluation_time_is_ms(&self) -> u32 {
+        let mut total_duration = 0;
         for card_evaluation in self.card_evaluations.clone() {
             if card_evaluation.start_date_str.is_some() && card_evaluation.end_date_str.is_some() {
                 let start_date = string_to_date_time(card_evaluation.start_date_str.unwrap().as_str()).unwrap();
                 let end_date = string_to_date_time(card_evaluation.end_date_str.unwrap().as_str()).unwrap();
                 let duration = end_date - start_date;
-                total_duration = total_duration + duration;
+                total_duration = total_duration + duration.num_milliseconds();
             }
         }
-        Ok(total_duration.num_milliseconds() as i32)
+        total_duration as u32
+    }
+
+    pub fn get_avg_card_read_time(&self) -> u32 {
+        let mut total_duration = 0;
+        let mut total_card_count = 0;
+        for card_evaluation in self.card_evaluations.clone() {
+            if card_evaluation.start_date_str.is_some() && card_evaluation.end_date_str.is_some() {
+                let start_date = string_to_date_time(card_evaluation.start_date_str.unwrap().as_str()).unwrap();
+                let end_date = string_to_date_time(card_evaluation.end_date_str.unwrap().as_str()).unwrap();
+                let duration = end_date - start_date;
+                total_duration = total_duration + duration.num_milliseconds();
+                total_card_count += 1;
+            }
+        }
+        if total_card_count < 1 {
+            return 0;
+        }
+        (total_duration / total_card_count) as u32
     }
 
     pub fn get_full_name(&self) -> String {
@@ -230,26 +271,37 @@ impl StudentEvaluation {
         self.state = AssessmentState::InProgress;
     }
 
-    pub fn stop(&mut self) -> Result<(), String>{
+    pub fn stop(&mut self) -> Result<(), String> {
         self.state = AssessmentState::Completed;
         self.result = Some(StudentEvaluationResult {
-            evaluation_time_in_ms: self.get_evaluation_time_is_ms()?,
-            cards_read_count: self.get_card_read_count()
+            evaluation_time_in_ms: self.get_evaluation_time_is_ms(),
+            cards_read_count: self.get_card_read_count(),
         });
         Ok(())
+    }
+
+    pub fn reset_results(&mut self) {
+        self.state = AssessmentState::NotStarted;
+        self.result = Option::None;
+        self.card_read_order_queue = self.card_evaluations.clone().iter()
+            .map(|ce| ce.card.id).collect::<Vec<_>>().into();
+        for card_evaluation in self.card_evaluations.iter_mut() {
+            card_evaluation.start_date_str = Option::None;
+            card_evaluation.end_date_str = Option::None;
+        }
     }
 }
 
 #[derive(Serialize, Debug, Clone, Deserialize, Type)]
 pub struct StudentEvaluationResult {
-    pub evaluation_time_in_ms: i32,
-    pub cards_read_count: i32
+    pub evaluation_time_in_ms: u32,
+    pub cards_read_count: u32,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct AssessmentStatus {
     pub state: AssessmentState,
-    pub progress: i32
+    pub progress: i32,
 }
 
 impl AssessmentStatus {
@@ -265,19 +317,19 @@ impl AssessmentStatus {
 pub struct StudentEvaluationInitialState {
     student_name: String,
     active_card: CardEvaluation,
-    card_read_duration_in_sec: u32
+    card_read_duration_in_sec: u32,
 }
 
 impl StudentEvaluationInitialState {
     pub fn new(
         student_name: String,
         active_card: CardEvaluation,
-        card_read_duration_in_sec: u32
+        card_read_duration_in_sec: u32,
     ) -> Self {
         Self {
             student_name,
             active_card,
-            card_read_duration_in_sec
+            card_read_duration_in_sec,
         }
     }
 }
@@ -286,7 +338,7 @@ impl StudentEvaluationInitialState {
 pub struct DeckCard {
     pub deck_id: u32,
     pub card_text: String,
-    pub image_file_path: Option<String>
+    pub image_file_path: Option<String>,
 }
 
 fn date_time_to_string(date_time: DateTime<Utc>) -> String {

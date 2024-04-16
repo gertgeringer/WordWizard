@@ -17,7 +17,7 @@
         "open": true
       },
       "dialog": {
-        "open": true
+        "all": true
       },
       "protocol": {
         "asset": true,

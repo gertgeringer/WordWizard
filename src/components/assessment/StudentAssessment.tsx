@@ -1,17 +1,21 @@
 import {Box, Button, Group, Paper, Pill, Title} from "@mantine/core";
-import {IconBook} from "@tabler/icons-react";
+import {IconBook, IconRestore} from "@tabler/icons-react";
 import {StudentEvaluation} from "../../bindings.ts";
 import React from "react";
 
 interface StudentAssessmentProps {
     studentEvaluation: StudentEvaluation
-    start: (studentEvaluation: StudentEvaluation) => void
+    onStart: (studentEvaluation: StudentEvaluation) => void
+    onReset: (studentEvaluation: StudentEvaluation) => Promise<StudentEvaluation>
+    assessmentCompleted: boolean
 }
 
 const StudentAssessment: React.FC<StudentAssessmentProps> = (
     {
         studentEvaluation,
-        start
+        onStart,
+        onReset,
+        assessmentCompleted
     }
 ) => {
     return (
@@ -19,7 +23,8 @@ const StudentAssessment: React.FC<StudentAssessmentProps> = (
             <Group justify="space-between">
                 <Box>
                     <Group>
-                        <Title order={5}>{studentEvaluation.student.first_name + " " + studentEvaluation.student.last_name}</Title>
+                        <Title
+                            order={5}>{studentEvaluation.student.first_name + " " + studentEvaluation.student.last_name}</Title>
                         <>
                             {studentEvaluation.state && studentEvaluation.state == "Completed" && studentEvaluation.result &&
                                 <Pill>
@@ -31,14 +36,28 @@ const StudentAssessment: React.FC<StudentAssessmentProps> = (
                     </Group>
                 </Box>
                 <Box>
-                    <Button
-                        disabled={studentEvaluation.state == "Completed"}
-                        leftSection={<IconBook size={14}/>}
-                        variant="default"
-                        onClick={() => start(studentEvaluation)}
-                    >
-                        Assess
-                    </Button>
+                    {!assessmentCompleted && studentEvaluation.state == "Completed" &&
+                        <Button
+                            leftSection={<IconRestore size={14}/>}
+                            variant="default"
+                            onClick={() => {
+                                onReset(studentEvaluation).then((studentEvaluation) => {
+                                    onStart(studentEvaluation);
+                                });
+                            }}
+                        >
+                            Redo
+                        </Button>
+                    }
+                    {studentEvaluation.state == "NotStarted" &&
+                        <Button
+                            leftSection={<IconBook size={14}/>}
+                            variant="default"
+                            onClick={() => onStart(studentEvaluation)}
+                        >
+                            Assess
+                        </Button>
+                    }
                 </Box>
             </Group>
         </Paper>

@@ -1,29 +1,25 @@
 import React from "react";
-import { useNavigate } from "react-router-dom";
-import {Assessment, AssessmentWithStatus, StudentEvaluation} from "../../bindings.ts";
-import {
-    Box,
-    Group,
-    Paper,
-    RingProgress,
-    Title,
-    Text,
-    Collapse,
-    Space,
-    Divider,
-    Stack
-} from "@mantine/core";
+import {useNavigate} from "react-router-dom";
+import {Assessment, AssessmentWithStatus, commands, StudentEvaluation} from "../../bindings.ts";
+import {Box, Collapse, Divider, Group, Paper, RingProgress, Space, Stack, Text, Title} from "@mantine/core";
 import StudentAssessment from "./StudentAssessment.tsx";
 import DeckCard from "../deck/DeckCard.tsx";
 import QuickMenu from "../common/QuickMenu.tsx";
+import {message} from "@tauri-apps/api/dialog";
 
 interface AssessmentListItemProps {
     aws: AssessmentWithStatus,
     onDeleted: (assessment: Assessment) => void,
+    onCopy: (assessment: Assessment) => void,
     opened: boolean
 }
 
-const AssessmentListItem: React.FC<AssessmentListItemProps> = ({ aws, onDeleted, opened}) => {
+const AssessmentListItem: React.FC<AssessmentListItemProps> = ({
+                                                                   aws,
+                                                                   onDeleted,
+                                                                   onCopy,
+                                                                   opened
+                                                               }) => {
 
     let navigate = useNavigate();
 
@@ -55,7 +51,11 @@ const AssessmentListItem: React.FC<AssessmentListItemProps> = ({ aws, onDeleted,
                                     <Text>{aws.status.state}</Text>
                                 </Group>
                             </Box>
-                            <QuickMenu item={aws.assessment} onDelete={(item) => onDeleted(item)}/>
+                            <QuickMenu
+                                item={aws.assessment}
+                                onDelete={(item) => onDeleted(item)}
+                                onCopy={(item) => onCopy(item)}
+                            />
                         </Group>
                     </Group>
                     <Collapse in={opened}>
@@ -71,7 +71,20 @@ const AssessmentListItem: React.FC<AssessmentListItemProps> = ({ aws, onDeleted,
                                     <StudentAssessment
                                         key={index}
                                         studentEvaluation={se}
-                                        start={(se) => startStudentEvaluation(se)}
+                                        assessmentCompleted={aws.status.state === "Completed"}
+                                        onStart={(se) => startStudentEvaluation(se)}
+                                        onReset={(se) => {
+                                            return new Promise((resolve, reject) => {
+                                                commands.resetStudentEvaluation(se.student.id, aws.assessment.id).then((result) => {
+                                                    if (result.status === "error") {
+                                                        message(result.error, {title: "Error"});
+                                                        reject(result.error);
+                                                    } else {
+                                                        resolve(result.data);
+                                                    }
+                                                });
+                                            });
+                                        }}
                                     />
                                 ))}
                         </Stack>
