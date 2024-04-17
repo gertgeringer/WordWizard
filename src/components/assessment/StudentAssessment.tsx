@@ -1,5 +1,5 @@
 import {Box, Button, Group, Paper, Pill, Title} from "@mantine/core";
-import {IconBook, IconRestore} from "@tabler/icons-react";
+import {IconBook, IconPlayerPlay, IconRestore} from "@tabler/icons-react";
 import {StudentEvaluation} from "../../bindings.ts";
 import React from "react";
 
@@ -56,6 +56,15 @@ const StudentAssessment: React.FC<StudentAssessmentProps> = (
                             onClick={() => onStart(studentEvaluation)}
                         >
                             Assess
+                        </Button>
+                    }
+                    {studentEvaluation.state == "InProgress" &&
+                        <Button
+                            leftSection={<IconPlayerPlay size={14}/>}
+                            variant="default"
+                            onClick={() => onStart(studentEvaluation)}
+                        >
+                            Continue
                         </Button>
                     }
                 </Box>

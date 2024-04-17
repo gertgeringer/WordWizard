@@ -38,7 +38,10 @@ const StudentListItem: React.FC<StudentListItemProps> = ({
     const rows = results.map((element) => (
         <Table.Tr key={element.eval_date_epoch}>
             <Table.Td>
-                {new Date((element.eval_date_epoch ?? 0) * 1000).toLocaleDateString()}
+                {
+                    (new Date((element.eval_date_epoch ?? 0) * 1000)).toLocaleDateString() + " " +
+                    (new Date((element.eval_date_epoch ?? 0) * 1000)).toLocaleTimeString()
+                }
             </Table.Td>
             <Table.Td>{element.total_cards}</Table.Td>
             <Table.Td>{element.total_cards_read}</Table.Td>

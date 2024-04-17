@@ -116,12 +116,20 @@ impl PartialEq for Assessment {
             return false;
         }
         for (i, card) in self.cards.iter().enumerate() {
-            if card != other.cards.get(i).unwrap() {
+            if let Some(other_card) = other.cards.get(i) {
+                if card != other_card {
+                    return false;
+                }
+            } else {
                 return false;
             }
         }
         for (i, student) in self.students.iter().enumerate() {
-            if student != other.students.get(i).unwrap() {
+            if let Some(other_student) = other.students.get(i) {
+                if student != other_student {
+                    return false;
+                }
+            } else {
                 return false;
             }
         }

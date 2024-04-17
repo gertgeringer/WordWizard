@@ -265,6 +265,7 @@ pub fn get_students_read_results(
             });
         }
     }
+    read_results.sort_by(|a, b| b.eval_date_epoch.cmp(&a.eval_date_epoch));
     StudentResults {
         student: student.clone(),
         results: read_results,

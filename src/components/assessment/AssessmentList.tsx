@@ -50,11 +50,10 @@ const AssessmentList: React.FC<AssessmentListProps> = ({assessments, onDeleted, 
                     }
                 })}/>
             <Stack gap="xs" style={{flexGrow: "1"}}>
-                {sortedAssessments
-                    .map((a, index) => (
-                        <AssessmentListItem key={index} aws={a} onDeleted={onDeleted} onCopy={onCopy}
-                                            opened={a.assessment.id === selectedAssessmentId}/>
-                    ))}
+                {sortedAssessments.filter(a => a.assessment.id === selectedAssessmentId).map((a, index) => (
+                    <AssessmentListItem key={index} aws={a} onDeleted={onDeleted} onCopy={onCopy}
+                                        opened={a.assessment.id === selectedAssessmentId}/>
+                ))}
             </Stack>
         </>
     );
