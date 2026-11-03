@@ -8,32 +8,22 @@ import {
 } from "@mantine/core";
 import DeckCardGrid from "./DeckCardGrid";
 import EditDeck from "./EditDeck";
-import {useState} from "react";
+import React, {useState} from "react";
 import {commands, Deck} from "../../bindings.ts";
 import QuickMenu from "../common/QuickMenu.tsx";
+import {message} from "@tauri-apps/api/dialog";
+import {useI18n} from "../../i18n";
 
 interface DeckListItemProps {
     deck: Deck,
     onDeckDeleted: (deck: Deck) => void,
+    onDeckUpdated: (deck: Deck) => void,
     editable?: boolean
 }
 
-interface EditDeckDetailsModalProps {
-    show: boolean,
-    deck: Deck,
-    onClose: () => void
-}
+const DeckListItem: React.FC<DeckListItemProps> = ({ deck, onDeckDeleted, onDeckUpdated, editable }) => {
 
-const EditDeckDetailsModal: React.FC<EditDeckDetailsModalProps> = ({show, deck, onClose}) => {
-    return (
-        <Modal opened={show} onClose={onClose}>
-            <EditDeck deck={deck} onDeckCreated={onClose} />
-        </Modal>
-    )
-}
-
-const DeckListItem: React.FC<DeckListItemProps> = ({ deck, onDeckDeleted, editable }) => {
-
+    const {t} = useI18n();
     const [showEditDeckModal, setShowEditDeckModal] = useState<boolean>(false);
 
     return (
@@ -41,32 +31,37 @@ const DeckListItem: React.FC<DeckListItemProps> = ({ deck, onDeckDeleted, editab
             <Paper shadow="xs" p="md">
                 <Stack>
                     <Group justify="space-between">
-                        <Group>
-                            <Stack>
-                                <Title order={4}>{deck.title}</Title>
+                        <Stack gap="xs">
+                            <Title order={4}>{deck.title}</Title>
+                            {deck.description &&
                                 <Text>
                                     {deck.description}
                                 </Text>
-                            </Stack>
-                        </Group>
+                            }
+                        </Stack>
                         <QuickMenu
                             item={deck}
-                            onDelete={(item) => {
-                                commands.deleteDeck(item.id).then(() => {
-                                    onDeckDeleted(item);
+                            onDelete={() => {
+                                commands.deleteDeck(deck.id).then((result) => {
+                                    if (result.status === "ok") {
+                                        onDeckDeleted(deck);
+                                    } else {
+                                        message(result.error, {title: t("error")});
+                                    }
                                 });
                             }}
-                            onEdit={() => {
-                                setShowEditDeckModal(visible => !visible);
-                            }}
+                            onEdit={() => setShowEditDeckModal(true)}
                         />
                     </Group>
                     <DeckCardGrid editable={editable} deckId={deck.id}/>
                 </Stack>
             </Paper>
-            <EditDeckDetailsModal show={showEditDeckModal} deck={deck} onClose={() => {
-                setShowEditDeckModal(false);
-            }}/>
+            <Modal opened={showEditDeckModal} onClose={() => setShowEditDeckModal(false)} title={t("editDeck")}>
+                <EditDeck deck={deck} onDeckSaved={(updatedDeck) => {
+                    onDeckUpdated(updatedDeck);
+                    setShowEditDeckModal(false);
+                }}/>
+            </Modal>
         </>
     )
 }

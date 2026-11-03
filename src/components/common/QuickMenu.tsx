@@ -1,6 +1,7 @@
 import React, {useState} from "react";
 import {ActionIcon, Button, Group, Menu, Modal, Text} from "@mantine/core";
-import {IconDotsVertical, IconEdit, IconTrash} from "@tabler/icons-react";
+import {IconCopy, IconDotsVertical, IconEdit, IconEye, IconTrash} from "@tabler/icons-react";
+import {useI18n} from "../../i18n";
 
 interface QuickMenuProps {
     item: any,
@@ -18,6 +19,7 @@ const QuickMenu: React.FC<QuickMenuProps> = ({
                                                  onView
                                              }) => {
 
+    const {t} = useI18n();
     const [showConfirmDialog, setShowConfirmDialog] = useState<boolean>(false);
 
     return (
@@ -30,7 +32,7 @@ const QuickMenu: React.FC<QuickMenuProps> = ({
                 withArrow
             >
                 <Menu.Target>
-                    <ActionIcon variant="filled" aria-label="Settings" onClick={(event) => {
+                    <ActionIcon variant="filled" aria-label={t("menuActions")} onClick={(event) => {
                         event.stopPropagation();
                         event.preventDefault();
                     }}>
@@ -47,36 +49,36 @@ const QuickMenu: React.FC<QuickMenuProps> = ({
                                 onEdit(item);
                             }}
                         >
-                            Edit
+                            {t("menuEdit")}
                         </Menu.Item>
                     }
                     {onCopy &&
                         <Menu.Item
-                            leftSection={<IconEdit size={14}/>}
+                            leftSection={<IconCopy size={14}/>}
                             onClick={(event) => {
                                 event.stopPropagation();
                                 event.preventDefault();
                                 onCopy(item);
                             }}
                         >
-                            Copy
+                            {t("menuCopy")}
                         </Menu.Item>
                     }
                     {onView &&
                         <Menu.Item
-                            leftSection={<IconEdit size={14}/>}
+                            leftSection={<IconEye size={14}/>}
                             onClick={(event) => {
                                 event.stopPropagation();
                                 event.preventDefault();
                                 onView(item);
                             }}
                         >
-                            View
+                            {t("menuView")}
                         </Menu.Item>
                     }
                     {onDelete &&
                         <>
-                            <Menu.Label>Danger zone</Menu.Label>
+                            <Menu.Label>{t("menuDangerZone")}</Menu.Label>
                             <Menu.Item
                                 color={"red"}
                                 leftSection={<IconTrash size={14}/>}
@@ -86,26 +88,26 @@ const QuickMenu: React.FC<QuickMenuProps> = ({
                                     setShowConfirmDialog(true);
                                 }}
                             >
-                                Delete
+                                {t("menuDelete")}
                             </Menu.Item>
                         </>
                     }
                 </Menu.Dropdown>
             </Menu>
-            <Modal opened={showConfirmDialog} onClose={close}>
-                <Text>Permanently delete the selected item?</Text>
+            <Modal opened={showConfirmDialog} onClose={() => setShowConfirmDialog(false)} title={t("confirmDeleteTitle")}>
+                <Text>{t("confirmDeleteText")}</Text>
                 <Group mt={"md"} justify={"space-between"}>
                     <Button color={"red"} onClick={() => {
                         if (onDelete) {
                             setShowConfirmDialog(false);
                             onDelete(item);
                         }
-                    }}>Yes</Button>
+                    }}>{t("yes")}</Button>
                     <Button onClick={(event) => {
                         event.preventDefault();
                         event.stopPropagation();
                         setShowConfirmDialog(false);
-                    }}>Cancel</Button>
+                    }}>{t("cancel")}</Button>
                 </Group>
             </Modal>
         </>
