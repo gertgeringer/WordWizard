@@ -4,17 +4,17 @@
 async getAllStudents() : Promise<Student[]> {
 return await TAURI_INVOKE("plugin:tauri-specta|get_all_students");
 },
-async createStudent(firstName: string, lastName: string) : Promise<__Result__<{ id: number; first_name: string; last_name: string }, string>> {
+async createStudent(firstName: string, lastName: string, className: string) : Promise<__Result__<{ id: number; first_name: string; last_name: string; class_name?: string }, string>> {
 try {
-    return { status: "ok", data: await TAURI_INVOKE("plugin:tauri-specta|create_student", { firstName, lastName }) };
+    return { status: "ok", data: await TAURI_INVOKE("plugin:tauri-specta|create_student", { firstName, lastName, className }) };
 } catch (e) {
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
 }
 },
-async updateStudent(studentId: number, firstName: string, lastName: string) : Promise<__Result__<{ id: number; first_name: string; last_name: string }, string>> {
+async updateStudent(studentId: number, firstName: string, lastName: string, className: string) : Promise<__Result__<{ id: number; first_name: string; last_name: string; class_name?: string }, string>> {
 try {
-    return { status: "ok", data: await TAURI_INVOKE("plugin:tauri-specta|update_student", { studentId, firstName, lastName }) };
+    return { status: "ok", data: await TAURI_INVOKE("plugin:tauri-specta|update_student", { studentId, firstName, lastName, className }) };
 } catch (e) {
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
@@ -39,12 +39,33 @@ try {
     else return { status: "error", error: e  as any };
 }
 },
-async getDeck(deckId: number) : Promise<Deck> {
-return await TAURI_INVOKE("plugin:tauri-specta|get_deck", { deckId });
+async getDeck(deckId: number) : Promise<__Result__<{ id: number; title: string; description: string; cards: Card[] }, string>> {
+try {
+    return { status: "ok", data: await TAURI_INVOKE("plugin:tauri-specta|get_deck", { deckId }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async addSampleDecks() : Promise<__Result__<{ id: number; title: string; description: string; cards: Card[] }[], string>> {
+try {
+    return { status: "ok", data: await TAURI_INVOKE("plugin:tauri-specta|add_sample_decks") };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
 },
 async saveCardToDeck(card: DeckCard) : Promise<__Result__<null, string>> {
 try {
     return { status: "ok", data: await TAURI_INVOKE("plugin:tauri-specta|save_card_to_deck", { card }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async setCardImage(deckId: number, cardId: number, imageFilePath: string | null) : Promise<__Result__<{ id: number; text: string; image_file_path: string | null }, string>> {
+try {
+    return { status: "ok", data: await TAURI_INVOKE("plugin:tauri-specta|set_card_image", { deckId, cardId, imageFilePath }) };
 } catch (e) {
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
@@ -66,6 +87,14 @@ try {
     else return { status: "error", error: e  as any };
 }
 },
+async startReading(studentId: number, deckId: number, durationInSec: number, shuffle: boolean) : Promise<__Result__<number, string>> {
+try {
+    return { status: "ok", data: await TAURI_INVOKE("plugin:tauri-specta|start_reading", { studentId, deckId, durationInSec, shuffle }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
 async copyAssessment(assessmentId: number) : Promise<__Result__<{ id: number; title: string; students: Student[]; cards: Card[]; duration_in_sec: number; student_evaluations: StudentEvaluation[] }, string>> {
 try {
     return { status: "ok", data: await TAURI_INVOKE("plugin:tauri-specta|copy_assessment", { assessmentId }) };
@@ -77,8 +106,13 @@ try {
 async getAllAssessments(includeCompletedAssessments: boolean) : Promise<AssessmentWithStatus[]> {
 return await TAURI_INVOKE("plugin:tauri-specta|get_all_assessments", { includeCompletedAssessments });
 },
-async getAssessment(assessmentId: number) : Promise<Assessment> {
-return await TAURI_INVOKE("plugin:tauri-specta|get_assessment", { assessmentId });
+async getAssessment(assessmentId: number) : Promise<__Result__<{ id: number; title: string; students: Student[]; cards: Card[]; duration_in_sec: number; student_evaluations: StudentEvaluation[] }, string>> {
+try {
+    return { status: "ok", data: await TAURI_INVOKE("plugin:tauri-specta|get_assessment", { assessmentId }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
 },
 async deleteAssessment(assessmentId: number) : Promise<__Result__<null, string>> {
 try {
@@ -104,11 +138,16 @@ try {
     else return { status: "error", error: e  as any };
 }
 },
-async cardReadEnd(studentId: number, assessmentId: number) : Promise<{ card: Card; start_date_str: string | null; end_date_str: string | null } | null> {
-return await TAURI_INVOKE("plugin:tauri-specta|card_read_end", { studentId, assessmentId });
+async cardReadEnd(studentId: number, assessmentId: number, wrong: boolean) : Promise<{ card: Card; start_date_str: string | null; end_date_str: string | null; wrong?: boolean } | null> {
+return await TAURI_INVOKE("plugin:tauri-specta|card_read_end", { studentId, assessmentId, wrong });
 },
-async startEvaluation(assessmentId: number, studentId: number) : Promise<{ student_name: string; active_card: CardEvaluation; card_read_duration_in_sec: number } | null> {
-return await TAURI_INVOKE("plugin:tauri-specta|start_evaluation", { assessmentId, studentId });
+async startEvaluation(assessmentId: number, studentId: number) : Promise<__Result__<{ student_name: string; active_card: CardEvaluation; card_read_duration_in_sec: number } | null, string>> {
+try {
+    return { status: "ok", data: await TAURI_INVOKE("plugin:tauri-specta|start_evaluation", { assessmentId, studentId }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
 },
 async stopEvaluation(assessmentId: number, studentId: number) : Promise<__Result__<{ evaluation_time_in_ms: number; cards_read_count: number } | null, string>> {
 try {
@@ -118,9 +157,6 @@ try {
     else return { status: "error", error: e  as any };
 }
 },
-async getAllStudentEvaluations(student: Student) : Promise<number[]> {
-return await TAURI_INVOKE("plugin:tauri-specta|get_all_student_evaluations", { student });
-},
 async resetStudentEvaluation(studentId: number, assessmentId: number) : Promise<__Result__<{ eval_date_epoch: number; student: Student; state: AssessmentState; card_evaluations: CardEvaluation[]; card_read_order_queue: number[]; result: StudentEvaluationResult | null }, string>> {
 try {
     return { status: "ok", data: await TAURI_INVOKE("plugin:tauri-specta|reset_student_evaluation", { studentId, assessmentId }) };
@@ -129,8 +165,61 @@ try {
     else return { status: "error", error: e  as any };
 }
 },
-async getStudentsReadResults(studentId: number) : Promise<StudentResults> {
-return await TAURI_INVOKE("plugin:tauri-specta|get_students_read_results", { studentId });
+async getStudentsReadResults(studentId: number) : Promise<__Result__<{ student: Student; results: ReadResult[] }, string>> {
+try {
+    return { status: "ok", data: await TAURI_INVOKE("plugin:tauri-specta|get_students_read_results", { studentId }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async addWordsToDeck(deckId: number, words: string[]) : Promise<__Result__<({ id: number; text: string; image_file_path: string | null })[], string>> {
+try {
+    return { status: "ok", data: await TAURI_INVOKE("plugin:tauri-specta|add_words_to_deck", { deckId, words }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async updateCardText(deckId: number, cardId: number, text: string) : Promise<__Result__<{ id: number; text: string; image_file_path: string | null }, string>> {
+try {
+    return { status: "ok", data: await TAURI_INVOKE("plugin:tauri-specta|update_card_text", { deckId, cardId, text }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async moveCard(deckId: number, cardId: number, newIndex: number) : Promise<__Result__<({ id: number; text: string; image_file_path: string | null })[], string>> {
+try {
+    return { status: "ok", data: await TAURI_INVOKE("plugin:tauri-specta|move_card", { deckId, cardId, newIndex }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async backupData(filePath: string) : Promise<__Result__<null, string>> {
+try {
+    return { status: "ok", data: await TAURI_INVOKE("plugin:tauri-specta|backup_data", { filePath }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async restoreData(filePath: string) : Promise<__Result__<null, string>> {
+try {
+    return { status: "ok", data: await TAURI_INVOKE("plugin:tauri-specta|restore_data", { filePath }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async exportResults(filePath: string, headers: string[]) : Promise<__Result__<number, string>> {
+try {
+    return { status: "ok", data: await TAURI_INVOKE("plugin:tauri-specta|export_results", { filePath, headers }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
 }
 }
 
@@ -143,14 +232,33 @@ export type AssessmentState = "NotStarted" | "InProgress" | "Completed"
 export type AssessmentStatus = { state: AssessmentState; progress: number }
 export type AssessmentWithStatus = { assessment: Assessment; status: AssessmentStatus }
 export type Card = { id: number; text: string; image_file_path: string | null }
-export type CardEvaluation = { card: Card; start_date_str: string | null; end_date_str: string | null }
+export type CardEvaluation = { card: Card; start_date_str: string | null; end_date_str: string | null; 
+/**
+ * Marked by the teacher when the student read the word wrong.
+ */
+wrong?: boolean }
 export type Deck = { id: number; title: string; description: string; cards: Card[] }
 export type DeckCard = { deck_id: number; card_text: string; image_file_path: string | null }
-export type ReadResult = { eval_date_epoch?: number; total_cards: number; total_cards_read: number; avg_card_read_time: number; total_read_time: number }
-export type Student = { id: number; first_name: string; last_name: string }
+export type ReadResult = { title: string; eval_date_epoch?: number; total_cards: number; total_cards_read: number; 
+/**
+ * Words the teacher marked as read wrong.
+ */
+total_cards_wrong: number; wrong_words: string[]; 
+/**
+ * Percentage of the read words that were read correctly.
+ */
+accuracy: number; 
+/**
+ * Words read correctly per minute, the standard reading fluency measure.
+ */
+words_correct_per_minute: number; avg_card_read_time: number; total_read_time: number }
+export type Student = { id: number; first_name: string; last_name: string; 
+/**
+ * The class the student is in, e.g. "Grade 2A". Empty when not set.
+ */
+class_name?: string }
 export type StudentEvaluation = { eval_date_epoch: number; student: Student; state: AssessmentState; card_evaluations: CardEvaluation[]; card_read_order_queue: number[]; result: StudentEvaluationResult | null }
 export type StudentEvaluationResult = { evaluation_time_in_ms: number; cards_read_count: number }
-export type StudentResults = { student: Student; results: ReadResult[] }
 
 /** tauri-specta globals **/
 

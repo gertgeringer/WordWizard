@@ -1,37 +1,40 @@
-import { AppShell } from "@mantine/core";
+import {AppShell, Group, Title} from "@mantine/core";
 import 'simplebar-react/dist/simplebar.min.css';
 import StudentsView from "./views/StudentsView";
-import {Route, Routes, useNavigate} from "react-router-dom";
+import {Navigate, Outlet, Route, Routes} from "react-router-dom";
 import DecksView from "./views/DecksView";
 import Navbar from "./components/common/navbar/Navbar";
-import AssessmentsView from "./views/AssessmentsView";
-import ReadEvaluationView from "./views/ReadEvaluationView";
-import {useEffect} from "react";
+import ReadingView from "./views/ReadingView";
+import StudentProgressView from "./views/StudentProgressView";
+import SettingsView from "./views/SettingsView";
+
+const MainLayout = () => (
+    <AppShell header={{height: 64}} padding="md">
+        <AppShell.Header px="md">
+            <Group h="100%" justify="space-between">
+                <Title order={3}>🧙 WordWizard</Title>
+                <Navbar/>
+            </Group>
+        </AppShell.Header>
+        <AppShell.Main>
+            <Outlet/>
+        </AppShell.Main>
+    </AppShell>
+);
 
 function App() {
-
-    const navigate = useNavigate();
-
-    useEffect(() => {
-        navigate("/students");
-    }, []);
-
     return (
-        <AppShell>
-            <AppShell.Navbar p={0}>
-                <AppShell.Section grow>
-                    <Navbar/>
-                </AppShell.Section>
-            </AppShell.Navbar>
-            <AppShell.Main style={{display: "flex", paddingLeft: "50px"}}>
-                <Routes>
-                    <Route path='students' element={<StudentsView/>}/>
-                    <Route path='decks' element={<DecksView/>}/>
-                    <Route path='assessments' element={<AssessmentsView/>}/>
-                    <Route path='evaluation/:evaluationId/student/:studentId' element={<ReadEvaluationView/>}/>
-                </Routes>
-            </AppShell.Main>
-        </AppShell>
+        <Routes>
+            <Route element={<MainLayout/>}>
+                <Route path='students' element={<StudentsView/>}/>
+                <Route path='students/:studentId' element={<StudentProgressView/>}/>
+                <Route path='decks' element={<DecksView/>}/>
+                <Route path='settings' element={<SettingsView/>}/>
+            </Route>
+            {/* The reading screen is full screen, so the student is not distracted. */}
+            <Route path='read/:assessmentId/student/:studentId' element={<ReadingView/>}/>
+            <Route path='*' element={<Navigate to="/students" replace/>}/>
+        </Routes>
     );
 }
 

@@ -1,0 +1,18 @@
+@font-face {
+    font-family: 'ABCJuniorTyping';
+    src: url('../assets/fonts/ABCJuniorTyping.ttf') format('truetype');
+}
+
+/* As large as fits: limited by the screen height, and by the width for long words. */
+.reading-word {
+    --word-height: 35vh;
+    font-family: 'ABCJuniorTyping', sans-serif;
+    font-size: min(var(--word-height), calc(120vw / var(--word-length)));
+    line-height: 1;
+    text-align: center;
+    white-space: nowrap;
+}
+
+.reading-word[data-with-image] {
+    --word-height: 22vh;
+}

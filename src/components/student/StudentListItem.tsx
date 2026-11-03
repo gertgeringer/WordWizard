@@ -1,12 +1,16 @@
 import React, {useEffect, useState} from "react";
-import {Avatar, Box, Button, Collapse, Divider, Group, Paper, Table, Title} from "@mantine/core";
+import {Avatar, Badge, Button, Group, Paper, Stack, Text, Title, Tooltip} from "@mantine/core";
+import {IconChartLine, IconEqual, IconPlayerPlay, IconTrendingDown, IconTrendingUp} from "@tabler/icons-react";
+import {useNavigate} from "react-router-dom";
 import {commands, ReadResult, Student} from "../../bindings.ts";
 import QuickMenu from "../common/QuickMenu.tsx";
-import {useDisclosure} from "@mantine/hooks";
-import {IconSelectAll} from "@tabler/icons-react";
+import {formatDate, getFullName} from "../../utils/format.ts";
+import {useI18n} from "../../i18n";
+import {getTrend, Trend} from "../../utils/trend.ts";
 
 interface StudentListItemProps {
     student: Student,
+    onStartReading: (student: Student) => void,
     onStudentSelected: (student: Student) => void,
     onStudentDeleted: (student: Student) => void,
 }
@@ -15,87 +19,84 @@ function getInitials(student: Student) {
     return student.first_name.charAt(0) + student.last_name.charAt(0);
 }
 
-function getFullName(student: Student) {
-    return student.first_name + " " + student.last_name;
-}
-
 const StudentListItem: React.FC<StudentListItemProps> = ({
                                                              student,
+                                                             onStartReading,
                                                              onStudentSelected,
                                                              onStudentDeleted
                                                          }) => {
 
+    const navigate = useNavigate();
+    const {t, language} = useI18n();
+    const [lastResult, setLastResult] = useState<ReadResult | null>();
+    const [trend, setTrend] = useState<Trend>();
+
     useEffect(() => {
-        commands.getStudentsReadResults(student.id).then((sr) => {
-            console.log(sr.results);
-            setResults(sr.results);
+        commands.getStudentsReadResults(student.id).then((result) => {
+            const results = result.status === "ok" ? result.data.results : [];
+            setLastResult(results[0] ?? null);
+            setTrend(getTrend(results[0], results[1]));
         });
-    }, [])
-
-    const [opened, {toggle}] = useDisclosure(false);
-    const [results, setResults] = useState<ReadResult[]>([]);
-
-    const rows = results.map((element) => (
-        <Table.Tr key={element.eval_date_epoch}>
-            <Table.Td>
-                {
-                    (new Date((element.eval_date_epoch ?? 0) * 1000)).toLocaleDateString() + " " +
-                    (new Date((element.eval_date_epoch ?? 0) * 1000)).toLocaleTimeString()
-                }
-            </Table.Td>
-            <Table.Td>{element.total_cards}</Table.Td>
-            <Table.Td>{element.total_cards_read}</Table.Td>
-            <Table.Td>{element.avg_card_read_time / 1000} Seconds</Table.Td>
-            <Table.Td>{element.total_read_time / 1000} Seconds</Table.Td>
-        </Table.Tr>
-    ));
+    }, [student.id])
 
     return (
-        <Paper shadow="xs" p="md">
-            <Group justify={"space-between"}>
-                <Group>
-                    <Avatar src={null} color="red">{getInitials(student)}</Avatar>
-                    <Box>
-                        <Title order={5}>{getFullName(student)}</Title>
-                    </Box>
-                </Group>
-                <Group>
-                    <Button leftSection={<IconSelectAll size={14}/>} variant="default" onClick={toggle}>View Reading
-                        Results</Button>
+        <Paper withBorder shadow="xs" p="lg" radius="md">
+            <Stack gap="md">
+                <Group justify="space-between" wrap="nowrap" align="flex-start">
+                    <Group wrap="nowrap">
+                        <Avatar size="lg" color="blue" radius="xl">{getInitials(student)}</Avatar>
+                        <div>
+                            <Group gap="xs">
+                                <Title order={4}>{getFullName(student)}</Title>
+                                {student.class_name && <Badge variant="default" tt="none">{student.class_name}</Badge>}
+                                {trend && <TrendBadge trend={trend}/>}
+                            </Group>
+                            <Text size="sm" c="dimmed">
+                                {lastResult === undefined && " "}
+                                {lastResult === null && t("hasNotReadYet")}
+                                {lastResult && t("lastRead", {
+                                    date: formatDate(lastResult.eval_date_epoch, language),
+                                    wcpm: lastResult.words_correct_per_minute,
+                                    accuracy: lastResult.accuracy,
+                                })}
+                            </Text>
+                        </div>
+                    </Group>
                     <QuickMenu
                         item={student}
                         onEdit={onStudentSelected}
                         onDelete={onStudentDeleted}
                     />
                 </Group>
-            </Group>
-            <Collapse in={opened}>
-                {results.length == 0 &&
-                    <Box mt={"md"} mb={"md"}>{student.first_name} has no assessment results available.</Box>
-                }
-                {results.length > 0 &&
-                    <>
-                        <Divider mt={"md"} mb={"md"}/>
-                        <Title order={6} mb={"md"}>Previous Assessment Results</Title>
-                        <Table>
-                            <Table.Thead>
-                                <Table.Tr>
-                                    <Table.Th>Date</Table.Th>
-                                    <Table.Th>Card Count</Table.Th>
-                                    <Table.Th>Cards Read</Table.Th>
-                                    <Table.Th>Average Card Read Time</Table.Th>
-                                    <Table.Th>Total Read Time</Table.Th>
-                                </Table.Tr>
-                            </Table.Thead>
-                            <Table.Tbody>{rows}</Table.Tbody>
-                        </Table>
-                    </>
-                }
-
-            </Collapse>
+                <Group grow>
+                    <Button size="md" leftSection={<IconPlayerPlay size={18}/>} onClick={() => onStartReading(student)}>
+                        {t("startReading")}
+                    </Button>
+                    <Button size="md" variant="default" leftSection={<IconChartLine size={18}/>}
+                            onClick={() => navigate(`/students/${student.id}`)}>
+                        {t("progress")}
+                    </Button>
+                </Group>
+            </Stack>
         </Paper>
     )
 
+}
+
+const TrendBadge: React.FC<{ trend: Trend }> = ({trend}) => {
+    const {t} = useI18n();
+    const badge = {
+        better: {color: "teal", icon: IconTrendingUp, label: t("trendBetter", {count: trend.difference})},
+        worse: {color: "red", icon: IconTrendingDown, label: t("trendWorse", {count: trend.difference})},
+        same: {color: "gray", icon: IconEqual, label: t("trendSame")},
+    }[trend.kind];
+    return (
+        <Tooltip label={t("trendTooltip")}>
+            <Badge variant="light" color={badge.color} size="lg" leftSection={<badge.icon size={14}/>}>
+                {badge.label}
+            </Badge>
+        </Tooltip>
+    );
 }
 
 export default StudentListItem

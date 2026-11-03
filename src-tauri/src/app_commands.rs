@@ -1,9 +1,11 @@
+use std::path::PathBuf;
+
 use tauri::State;
 
-use crate::{AppState, execute_and_save, get_db_file_path};
+use crate::{AppState, execute_and_save};
 use crate::core::assessment::{Assessment, AssessmentWithStatus, CardEvaluation, DeckCard, StudentEvaluation, StudentEvaluationInitialState, StudentEvaluationResult};
 use crate::core::deck::{Card, Deck};
-use crate::core::student::{ReadResult, Student, StudentResults};
+use crate::core::student::{Student, StudentResults};
 
 #[tauri::command]
 #[specta::specta]
@@ -16,10 +18,11 @@ pub fn get_all_students(state: State<AppState>) -> Vec<Student> {
 pub fn create_student(
     first_name: String,
     last_name: String,
+    class_name: String,
     state: State<AppState>,
 ) -> Result<Student, String> {
     execute_and_save(state, |engine| {
-        engine.create_student(first_name, last_name)
+        engine.create_student(first_name, last_name, class_name)
     })
 }
 
@@ -29,11 +32,12 @@ pub fn update_student(
     student_id: u32,
     first_name: String,
     last_name: String,
+    class_name: String,
     state: State<AppState>,
 ) -> Result<Student, String> {
     execute_and_save(state, |engine| {
-        engine.update_student(student_id, first_name, last_name).clone()
-    })
+        engine.update_student(student_id, first_name, last_name, class_name)
+    })?
 }
 
 #[tauri::command]
@@ -68,16 +72,37 @@ pub fn create_deck(title: String, description: String, state: State<'_, AppState
 
 #[tauri::command]
 #[specta::specta]
-pub fn save_card_to_deck(card: DeckCard, state: State<'_, AppState>) -> Result<(), String> {
+pub fn add_sample_decks(state: State<'_, AppState>) -> Result<Vec<Deck>, String> {
     execute_and_save(state, |engine| {
-        engine.add_card_to_deck(card.deck_id, card.card_text, card.image_file_path)
+        engine.add_sample_decks()
     })
 }
 
 #[tauri::command]
 #[specta::specta]
-pub fn get_deck(deck_id: u32, state: State<'_, AppState>) -> Deck {
-    state.get_engine().get_deck(deck_id).clone()
+pub fn save_card_to_deck(card: DeckCard, state: State<'_, AppState>) -> Result<(), String> {
+    execute_and_save(state, |engine| {
+        engine.add_card_to_deck(card.deck_id, card.card_text, card.image_file_path)
+    })?
+}
+
+#[tauri::command]
+#[specta::specta]
+pub fn set_card_image(
+    deck_id: u32,
+    card_id: u32,
+    image_file_path: Option<String>,
+    state: State<'_, AppState>,
+) -> Result<Card, String> {
+    execute_and_save(state, |engine| {
+        engine.set_card_image(deck_id, card_id, image_file_path)
+    })?
+}
+
+#[tauri::command]
+#[specta::specta]
+pub fn get_deck(deck_id: u32, state: State<'_, AppState>) -> Result<Deck, String> {
+    state.get_engine().get_deck(deck_id)
 }
 
 #[tauri::command]
@@ -86,45 +111,35 @@ pub fn get_all_assessments(
     include_completed_assessments: bool,
     state: State<'_, AppState>,
 ) -> Vec<AssessmentWithStatus> {
-    state.get_engine().get_assessments(include_completed_assessments).iter().map(|a| {
-        AssessmentWithStatus::new(a.clone())
-    }).collect()
+    state.get_engine()
+        .get_assessments(include_completed_assessments)
+        .into_iter()
+        .map(AssessmentWithStatus::new)
+        .collect()
 }
 
 #[tauri::command]
 #[specta::specta]
-pub fn get_assessment(assessment_id: u32, state: State<'_, AppState>) -> Assessment {
+pub fn get_assessment(assessment_id: u32, state: State<'_, AppState>) -> Result<Assessment, String> {
     state.get_engine()
         .get_assessment(assessment_id)
-        .unwrap()
-        .clone()
+        .cloned()
+        .ok_or("Assessment not found".to_string())
 }
 
 #[tauri::command]
 #[specta::specta]
 pub fn start_evaluation(
     assessment_id: u32, student_id: u32, state: State<'_, AppState>,
-) -> Option<StudentEvaluationInitialState> {
-    let mut card_read_duration_in_sec = 0;
-    if let Some(a) = state.get_engine().get_assessment(assessment_id) {
-        card_read_duration_in_sec = a.duration_in_sec;
-    }
-    if let Some(se) = state.get_engine().get_student_evaluation(
-        assessment_id, student_id,
-    ) {
+) -> Result<Option<StudentEvaluationInitialState>, String> {
+    execute_and_save(state, |engine| {
+        let card_read_duration_in_sec = engine.get_assessment(assessment_id)?.duration_in_sec;
+        let se = engine.get_student_evaluation(assessment_id, student_id)?;
         se.start();
-        let full_name = se.get_full_name().to_owned();
-        if let Some(ce) = se.get_current_card() {
-            return Some(
-                StudentEvaluationInitialState::new(
-                    full_name,
-                    ce.clone(),
-                    card_read_duration_in_sec,
-                )
-            );
-        }
-    }
-    Option::None
+        let full_name = se.get_full_name();
+        let ce = se.get_current_card()?.clone();
+        Some(StudentEvaluationInitialState::new(full_name, ce, card_read_duration_in_sec))
+    })
 }
 
 #[tauri::command]
@@ -134,17 +149,11 @@ pub fn stop_evaluation(
     student_id: u32,
     state: State<AppState>,
 ) -> Result<Option<StudentEvaluationResult>, String> {
-    if let Some(se) = state.get_engine().get_student_evaluation(assessment_id, student_id) {
-        se.stop().unwrap();
-    }
-    state.get_engine().save(get_db_file_path()).unwrap();
-    if let Some(se) = state.get_engine().get_student_evaluation(assessment_id, student_id) {
-        return Ok(Some(StudentEvaluationResult {
-            evaluation_time_in_ms: se.get_evaluation_time_is_ms(),
-            cards_read_count: se.get_card_read_count(),
-        }));
-    }
-    Ok(Option::None)
+    execute_and_save(state, |engine| {
+        let se = engine.get_student_evaluation(assessment_id, student_id)?;
+        se.stop().ok()?;
+        se.result.clone()
+    })
 }
 
 #[tauri::command]
@@ -152,7 +161,7 @@ pub fn stop_evaluation(
 pub fn delete_card(deck_id: u32, card_id: u32, state: State<AppState>) -> Result<u32, String> {
     execute_and_save(state, |engine| {
         engine.delete_card_from_deck(deck_id, card_id)
-    })
+    })?
 }
 
 #[tauri::command]
@@ -160,7 +169,7 @@ pub fn delete_card(deck_id: u32, card_id: u32, state: State<AppState>) -> Result
 pub fn update_deck(deck: Deck, state: State<AppState>) -> Result<(), String> {
     execute_and_save(state, |engine| {
         engine.update_deck(deck)
-    })
+    })?
 }
 
 #[tauri::command]
@@ -168,17 +177,14 @@ pub fn update_deck(deck: Deck, state: State<AppState>) -> Result<(), String> {
 pub fn card_read_end(
     student_id: u32,
     assessment_id: u32,
+    wrong: bool,
     state: State<AppState>,
 ) -> Option<CardEvaluation> {
-    state.get_engine().read_card(student_id, assessment_id);
-    if let Some(se) = state.get_engine().get_student_evaluation(
-        assessment_id, student_id,
-    ) {
-        if let Some(next_card) = se.get_current_card() {
-            return Some(next_card.clone());
-        }
-    }
-    Option::None
+    let mut engine = state.get_engine();
+    engine.read_card(student_id, assessment_id, wrong);
+    engine.get_student_evaluation(assessment_id, student_id)?
+        .get_current_card()
+        .cloned()
 }
 
 #[tauri::command]
@@ -191,12 +197,21 @@ pub fn create_assessment(
     state: State<AppState>,
 ) -> Result<Assessment, String> {
     execute_and_save(state, |engine| {
-        engine.create_assessment(
-            title.to_owned(),
-            students.clone(),
-            cards.clone(),
-            duration_in_sec,
-        )
+        engine.create_assessment(title, students, cards, duration_in_sec)
+    })?
+}
+
+#[tauri::command]
+#[specta::specta]
+pub fn start_reading(
+    student_id: u32,
+    deck_id: u32,
+    duration_in_sec: u32,
+    shuffle: bool,
+    state: State<AppState>,
+) -> Result<u32, String> {
+    execute_and_save(state, |engine| {
+        engine.start_reading(student_id, deck_id, duration_in_sec, shuffle)
     })?
 }
 
@@ -218,19 +233,8 @@ pub fn delete_assessment(
     state: State<AppState>,
 ) -> Result<(), String> {
     execute_and_save(state, |engine| {
-        engine.delete_assessment(
-            assessment_id
-        )
+        engine.delete_assessment(assessment_id)
     })
-}
-
-#[tauri::command]
-#[specta::specta]
-pub fn get_all_student_evaluations(
-    student: Student,
-    state: State<AppState>,
-) -> Vec<i32> {
-    state.get_engine().get_student_evaluation_results(student.clone())
 }
 
 #[tauri::command]
@@ -250,24 +254,55 @@ pub fn reset_student_evaluation(
 pub fn get_students_read_results(
     student_id: u32,
     state: State<AppState>,
-) -> StudentResults {
+) -> Result<StudentResults, String> {
     let mut engine = state.get_engine();
-    let student = engine.get_student(student_id);
-    let mut read_results = vec![];
-    for assessment in engine.get_assessments(true).clone() {
-        if let Some(se) = engine.get_student_evaluation(assessment.id, student.id) {
-            read_results.push(ReadResult {
-                eval_date_epoch: se.eval_date_epoch,
-                total_cards: assessment.cards.len() as u32,
-                total_cards_read: se.get_card_read_count(),
-                avg_card_read_time: se.get_avg_card_read_time(),
-                total_read_time: se.get_evaluation_time_is_ms(),
-            });
-        }
-    }
-    read_results.sort_by(|a, b| b.eval_date_epoch.cmp(&a.eval_date_epoch));
-    StudentResults {
-        student: student.clone(),
-        results: read_results,
-    }
+    let student = engine.get_student(student_id).ok_or("Student not found")?;
+    Ok(StudentResults {
+        results: engine.get_read_results(student.id),
+        student,
+    })
+}
+
+#[tauri::command]
+#[specta::specta]
+pub fn add_words_to_deck(deck_id: u32, words: Vec<String>, state: State<AppState>) -> Result<Vec<Card>, String> {
+    execute_and_save(state, |engine| {
+        engine.add_words_to_deck(deck_id, words)
+    })?
+}
+
+#[tauri::command]
+#[specta::specta]
+pub fn update_card_text(deck_id: u32, card_id: u32, text: String, state: State<AppState>) -> Result<Card, String> {
+    execute_and_save(state, |engine| {
+        engine.update_card_text(deck_id, card_id, text)
+    })?
+}
+
+#[tauri::command]
+#[specta::specta]
+pub fn move_card(deck_id: u32, card_id: u32, new_index: u32, state: State<AppState>) -> Result<Vec<Card>, String> {
+    execute_and_save(state, |engine| {
+        engine.move_card(deck_id, card_id, new_index)
+    })?
+}
+
+#[tauri::command]
+#[specta::specta]
+pub fn backup_data(file_path: String, state: State<AppState>) -> Result<(), String> {
+    state.get_engine().backup(&PathBuf::from(file_path))
+}
+
+#[tauri::command]
+#[specta::specta]
+pub fn restore_data(file_path: String, state: State<AppState>) -> Result<(), String> {
+    execute_and_save(state, |engine| {
+        engine.restore(&PathBuf::from(file_path))
+    })?
+}
+
+#[tauri::command]
+#[specta::specta]
+pub fn export_results(file_path: String, headers: Vec<String>, state: State<AppState>) -> Result<u32, String> {
+    state.get_engine().export_results(&PathBuf::from(file_path), headers)
 }

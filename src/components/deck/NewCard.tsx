@@ -1,10 +1,12 @@
-import {Button, Group, Modal, Textarea, Title, Image} from '@mantine/core';
+import {Button, Group, Modal, TextInput, Text, Image, CloseButton, Stack} from '@mantine/core';
 import {useForm} from '@mantine/form';
-import { open } from '@tauri-apps/api/dialog';
+import {message} from '@tauri-apps/api/dialog';
 import React, {useState} from "react";
-import {IconImageInPicture} from "@tabler/icons-react";
+import {IconPhoto} from "@tabler/icons-react";
 import {DeckCard, commands} from "../../bindings.ts";
 import {convertFileSrc} from "@tauri-apps/api/tauri";
+import {useI18n} from "../../i18n";
+import {pickSvgPicture} from "../../utils/pictures.ts";
 
 interface NewCardProps {
   deckId: number,
@@ -14,83 +16,76 @@ interface NewCardProps {
 
 const NewCard: React.FC<NewCardProps> = ({ opened, close, deckId }) => {
 
+  const {t} = useI18n();
+
   const form = useForm({
     initialValues: {
       text: ''
     },
 
     validate: {
-      text: (value) => (value.length === 0 ? 'The card does not contain any text' : null),
+      text: (value) => (value.trim().length === 0 ? t("wordRequired") : null),
     },
 
   });
 
-  const [cardImageFilePath, setCardImageFilePath] = useState<string>();
+  const [cardImageFilePath, setCardImageFilePath] = useState<string | null>(null);
+
+  const closeAndReset = () => {
+    form.reset();
+    setCardImageFilePath(null);
+    close();
+  }
 
   return (
       <Modal
-          size="sm"
+          size="md"
           opened={opened}
-          onClose={() => {
-            setCardImageFilePath(undefined);
-            close();
-          }}
-          title="New Card"
-          overlayProps={{
-            backgroundOpacity: 0.55,
-            blur: 3,
-          }}
+          onClose={closeAndReset}
+          title={<Text fw={700} size="lg">{t("addAWord")}</Text>}
+          centered
       >
-        <form onSubmit={form.onSubmit((form) => {
+        <form onSubmit={form.onSubmit((values) => {
           let card: DeckCard = {
             deck_id: deckId,
-            card_text: form.text,
-            image_file_path: cardImageFilePath as any
+            card_text: values.text.trim(),
+            image_file_path: cardImageFilePath
           }
-          commands.saveCardToDeck(card).then(() => {
-            form.text = '';
-            setCardImageFilePath(undefined);
-            close();
+          commands.saveCardToDeck(card).then((result) => {
+            if (result.status === "ok") {
+              closeAndReset();
+            } else {
+              message(result.error, {title: t("error")});
+            }
           });
         })}>
-          <Title order={4}>Text</Title>
-          <Textarea data-autofocus
-                    autosize
-                    minRows={4}
-                    maxRows={10}
-                    {...form.getInputProps('text')}
-          />
-          {cardImageFilePath &&
-              <>
-                <Title mt={"md"} order={4}>Image</Title>
-                <Image
-                    h={100}
-                    w="auto"
-                    fit="contain"
-                    src={convertFileSrc(cardImageFilePath)} />
-              </>
-          }
-          <Group justify={"space-between"} mt="xl">
-            <Group>
+          <Stack>
+            <TextInput
+                data-autofocus
+                size="lg"
+                label={t("word")}
+                placeholder={t("wordPlaceholder")}
+                {...form.getInputProps('text')}
+            />
+            {cardImageFilePath &&
+                <Group justify="space-between" align="flex-start" wrap="nowrap">
+                  <Image h={100} w="auto" fit="contain" radius="md" src={convertFileSrc(cardImageFilePath)}/>
+                  <CloseButton aria-label={t("removePicture")} onClick={() => setCardImageFilePath(null)}/>
+                </Group>
+            }
+            <Text size="sm" c="dimmed">{t("pictureHint")}</Text>
+            <Group justify={"space-between"}>
               <Button
-                  leftSection={<IconImageInPicture size={14}/>} variant="default"
+                  leftSection={<IconPhoto size={16}/>} variant="default"
                   onClick={() => {
-                    open({
-                        multiple: false,
-                        directory: false,
-                      filters:[{
-                        name: 'Images',
-                        extensions: ['jpg', 'jpeg', 'png']
-                      }]
-                    }).then((result) => {
-                      setCardImageFilePath(result as any);
-                    });
-                  }}>Add Image</Button>
+                    // Keep the current picture when the dialog is cancelled.
+                    pickSvgPicture(t).then(path => path && setCardImageFilePath(path));
+                  }}>{cardImageFilePath ? t("changePicture") : t("addPicture")}</Button>
+              <Button type="submit" size="md">
+                {t("saveWord")}
+              </Button>
             </Group>
-            <Button type="submit">
-              Save
-            </Button>
-          </Group>
+          </Stack>
         </form>
       </Modal>
   );

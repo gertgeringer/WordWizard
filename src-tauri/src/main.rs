@@ -22,12 +22,13 @@ impl AppState {
     }
 
     fn get_engine(&self) -> std::sync::MutexGuard<'_, Engine> {
-        self.0.lock().expect("Failed to acquire lock")
+        // A panic while holding the lock poisons it; the data itself is still usable.
+        self.0.lock().unwrap_or_else(|poisoned| poisoned.into_inner())
     }
 }
 
 fn get_db_file_path() -> PathBuf {
-    format!("{}/data.json", get_root_file_path().to_str().unwrap()).parse().unwrap()
+    get_root_file_path().join("data.json")
 }
 
 fn get_root_file_path() -> PathBuf {
@@ -61,9 +62,12 @@ fn main() {
                 app_commands::get_all_decks,
                 app_commands::create_deck,
                 app_commands::get_deck,
+                app_commands::add_sample_decks,
                 app_commands::save_card_to_deck,
+                app_commands::set_card_image,
                 app_commands::update_deck,
                 app_commands::create_assessment,
+                app_commands::start_reading,
                 app_commands::copy_assessment,
                 app_commands::get_all_assessments,
                 app_commands::get_assessment,
@@ -73,9 +77,14 @@ fn main() {
                 app_commands::card_read_end,
                 app_commands::start_evaluation,
                 app_commands::stop_evaluation,
-                app_commands::get_all_student_evaluations,
                 app_commands::reset_student_evaluation,
-                app_commands::get_students_read_results
+                app_commands::get_students_read_results,
+                app_commands::add_words_to_deck,
+                app_commands::update_card_text,
+                app_commands::move_card,
+                app_commands::backup_data,
+                app_commands::restore_data,
+                app_commands::export_results
             ]);
 
         #[cfg(debug_assertions)]
@@ -83,7 +92,6 @@ fn main() {
 
         specta_builder.into_plugin()
     };
-
 
     let engine = Engine::load(get_db_file_path());
     tauri::Builder::default()
